@@ -1,10 +1,7 @@
 // src/auth/dto/auth.dto.ts
-import { IsEmail, IsNotEmpty, IsString } from "class-validator";
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class AuthDto {
-  firstName?: string;
-  lastName?: string;
-  
   @IsEmail()
   @IsNotEmpty()
   email: string;
@@ -14,5 +11,10 @@ export class AuthDto {
   password: string;
   
   // Note: These fields are optional and do not have validators
-  
+  @IsString()
+  @IsOptional()
+  firstName: string;
+  @IsString()
+  @IsOptional()
+  lastName: string;
 }
