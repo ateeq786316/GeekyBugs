@@ -57,6 +57,21 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## Authentication System
+
+This project implements a JWT-based authentication system with session management. Key features include:
+
+- JWT token generation with 15-minute expiration
+- Database-stored sessions with UUID identifiers
+- httpOnly cookie storage for tokens
+- Automatic session expiration
+- Explicit logout functionality
+- Session validation on protected routes
+
+For detailed information about the authentication implementation, see:
+- [Authentication System Documentation](AUTHENTICATION.md)
+- [Authentication Flow Diagram](AUTH_FLOW.md)
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

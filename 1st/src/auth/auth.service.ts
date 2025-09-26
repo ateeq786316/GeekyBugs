@@ -13,6 +13,7 @@ export class AuthService{
         private jwt: JwtService, 
         private config: ConfigService   
     ) {}
+    
     async signup(dto: AuthDto){
         const hash = await argon.hash(dto.password);
 
@@ -24,10 +25,11 @@ export class AuthService{
                         firstName: dto.firstName,
                         lastName: dto.lastName,
                     },
-                    // console.log(data);
                 });
-                // delete user.hash;
-                return { user, message: "user created successfully" };
+                console.log('User created successfully', user);
+                // Create session and token
+                return await this.createSessionAndToken(user.id, user.email);
+                
         }catch (error) {
             if(error instanceof PrismaClientKnownRequestError){
                 if(error.code === 'P2002'){
@@ -35,9 +37,9 @@ export class AuthService{
                 }
         }
         throw error;
-
     }
     }
+    
     async login(dto: AuthDto){
         const user = await this.prisma.user.findUnique({
             where: {
@@ -48,27 +50,81 @@ export class AuthService{
         const isPasswordValid = await argon.verify(user.hash, dto.password);
         if(!isPasswordValid) throw new ForbiddenException('Credentials incorrect');
 
-        return this.signToken(user.id , user.email);
+        console.log('User logged in successfully', user);
+        return this.createSessionAndToken(user.id, user.email);
     }
 
-
-    async signToken(userId:number , email: string): Promise<{access_token: string}>
+    async createSessionAndToken(userId: number, email: string): Promise<{access_token: string}>
     {
+        // Create session record
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 15); // 15 minutes expiry
+        
+        const session = await this.prisma['session'].create({
+            data: {
+                userId: userId,
+                expiresAt: expiresAt,
+            },
+        });
+        console.log('Session created successfully', session);
+        // Create JWT token with session ID
         const payload = {
-            sub : userId,       
-            email
+            sub: userId,
+            email,
+            sessionId: session.id,
         };
+        
         const secret = this.config.get('JWT_SECRET');
         if (!secret) {
             throw new ForbiddenException('JWT_SECRET is not configured.');
         }
-        const token = await this.jwt.signAsync(payload, 
-            {
-                expiresIn:'15m', 
-                secret: secret
-            });
+        
+        const token = await this.jwt.signAsync(payload, {
+            expiresIn: '15m',
+            secret: secret,
+        });
+        console.log('Token created successfully', token);
         return {
             access_token: token,
+        };
+    }
+
+    async logout(sessionId: string) {
+        await this.prisma['session'].update({
+            where: { id: sessionId },
+            data: { 
+                invalidated: true,
+                expiresAt: new Date(), // Set expiry to now
+            },
+        });
+        console.log('Session invalidated successfully', sessionId);     
+    }
+
+    async validateSession(sessionId: string): Promise<boolean> {
+        try {
+            const session = await this.prisma['session'].findUnique({
+                where: { id: sessionId },
+            });
+            
+            // Check if session exists
+            if (!session) {
+                return false;
+            }
+            
+            // Check if session is invalidated
+            if (session.invalidated) {
+                return false;
+            }
+            
+            // Check if session is expired
+            if (session.expiresAt < new Date()) {
+                return false;
+            }
+            console.log('Session validated successfully', session);
+            
+            return true;
+        } catch (error) {
+            return false;
         }
     }
 }
